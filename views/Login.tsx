@@ -15,6 +15,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.CLIENT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [blockedUntil, setBlockedUntil] = useState<number | null>(() => {
+    const v = localStorage.getItem('registrationBlockedUntil');
+    return v ? parseInt(v, 10) : null;
+  });
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,6 +29,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // prevent registration attempts while blocked
+    if (mode === 'register' && blockedUntil && blockedUntil > Date.now()) {
+      setError(`Limite de envio de e-mail atingido. Tente novamente em ${Math.ceil((blockedUntil - Date.now()) / 60000)} min.`);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -40,7 +50,16 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
         });
       }
     } catch (err: any) {
-      setError(err.message || 'Erro na autenticação. Verifique os dados.');
+      // Handle rate limit specifically
+      if (err && err.message === 'EMAIL_RATE_LIMIT') {
+        const blockMs = 5 * 60 * 1000; // 5 minutes
+        const until = Date.now() + blockMs;
+        localStorage.setItem('registrationBlockedUntil', String(until));
+        setBlockedUntil(until);
+        setError('Limite de envio de e-mail atingido. Verifique sua caixa de entrada e tente novamente em 5 minutos.');
+      } else {
+        setError(err.message || 'Erro na autenticação. Verifique os dados.');
+      }
     } finally {
       setLoading(false);
     }
@@ -142,7 +161,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
             <input required type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 pl-12 pr-4 py-4 rounded-2xl border-none outline-none focus:ring-2 focus:ring-yellow-400 text-sm" />
           </div>
 
-          <Button type="submit" className="w-full h-14 text-sm font-black uppercase tracking-widest shadow-lg" isLoading={loading}>
+          <Button type="submit" className="w-full h-14 text-sm font-black uppercase tracking-widest shadow-lg" isLoading={loading} disabled={mode === 'register' && blockedUntil !== null && blockedUntil > Date.now()}>
             {mode === 'login' ? 'Entrar' : 'Cadastrar'}
           </Button>
         </form>

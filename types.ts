@@ -36,6 +36,7 @@ export interface User {
   phone: string;
   avatarUrl?: string;
   document: string;
+  vehiclePlate?: string;
   balance: number;
   rating: number;
   totalRatings: number;
