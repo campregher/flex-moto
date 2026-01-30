@@ -11,9 +11,33 @@ export const useStore = () => {
      AUTH + SESSION
   ========================== */
   useEffect(() => {
+    const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+    const fetchSessionWithRetries = async (retries = 2) => {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          return session;
+        } catch (err: any) {
+          const msg = String(err?.message || '');
+          // Treat AbortError (transient) specially and retry
+          if (err?.name === 'AbortError' || /aborted/i.test(msg)) {
+            console.info(`getSession aborted (attempt ${attempt + 1}/${retries + 1}); ${msg}`);
+            if (attempt < retries) {
+              await sleep(200 * (attempt + 1));
+              continue;
+            }
+            return null;
+          }
+          throw err;
+        }
+      }
+      return null;
+    };
+
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = await fetchSessionWithRetries();
         if (session?.user?.id) {
           await fetchProfile(session.user.id);
         }
@@ -29,8 +53,10 @@ export const useStore = () => {
     const { data: { subscription } } =
       supabase.auth.onAuthStateChange(async (_event, session) => {
         try {
-          if (session?.user?.id) {
-            await fetchProfile(session.user.id);
+          // Use provided session if available, otherwise try to fetch a fresh one
+          const s = session ?? await fetchSessionWithRetries();
+          if (s?.user?.id) {
+            await fetchProfile(s.user.id);
           } else {
             setUser(null);
             setOrders([]);
