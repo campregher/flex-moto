@@ -1,0 +1,9 @@
+
+{
+  "name": "FlexMoto - Logística Inteligente",
+  "description": "Plataforma de logística para entregas Mercado Livre Flex conectando lojistas e motoboys com cálculo automático de frete e geolocalização.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ]
+}

@@ -1,0 +1,30 @@
+name: Apply DB Migrations
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  apply-migrations:
+    name: Apply DB migrations to Supabase
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "ERROR: SUPABASE_DB_URL secret is not set"; exit 1;
+          fi
+          set -euo pipefail
+          for f in db/migrations/*.sql; do
+            echo "Applying $f"
+            psql "$SUPABASE_DB_URL" -f "$f"
+          done
